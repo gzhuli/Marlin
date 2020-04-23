@@ -59,7 +59,7 @@
 
 #elif defined(STM32F401xC) || defined(STM32F401xE)
 
-  #define HAL_TIMER_RATE (F_CPU / 2) // frequency of timer peripherals
+  #define HAL_TIMER_RATE (F_CPU) // frequency of timer peripherals
 
   #ifndef STEP_TIMER
     #define STEP_TIMER 9
