@@ -37,10 +37,17 @@
 //
 // Limit Switches
 //
-#define X_MIN_PIN          PA2
-#define Y_MIN_PIN          PA1
-#define Z_MIN_PIN          PA0
-#define Z_MAX_PIN          PC2
+#if ENABLED(DELTA)
+  #define X_MAX_PIN          PA2  // Revert MAX and MIN limit switch pins for Deltas.
+  #define Y_MAX_PIN          PA1
+  #define Z_MAX_PIN          PA0
+  #define Z_MIN_PIN          PC2
+#else
+  #define X_MIN_PIN          PA2
+  #define Y_MIN_PIN          PA1
+  #define Z_MIN_PIN          PA0
+  #define Z_MAX_PIN          PC2
+#endif
 
 //
 // Steppers
