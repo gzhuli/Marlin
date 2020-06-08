@@ -20,7 +20,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
 #ifdef ARDUINO_ARCH_STM32F1
 
 #include <libmaple/stm32.h>
@@ -121,7 +120,7 @@ bool SDIO_ReadBlock_DMA(uint32_t blockAddress, uint8_t *data) {
 }
 
 bool SDIO_ReadBlock(uint32_t blockAddress, uint8_t *data) {
-  uint32_t retries = 3;
+  uint32_t retries = SDIO_READ_RETRIES;
   while (retries--) if (SDIO_ReadBlock_DMA(blockAddress, data)) return true;
   return false;
 }
