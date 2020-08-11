@@ -76,7 +76,7 @@
   #define MCU_STEP_TIMER  4
   #define MCU_TEMP_TIMER  2
 #elif defined(STM32F401xC) || defined(STM32F401xE)
-  #define MCU_TIMER_RATE (F_CPU / 2)
+  #define MCU_TIMER_RATE (F_CPU)
   #define MCU_STEP_TIMER  9
   #define MCU_TEMP_TIMER 10
 #elif defined(STM32F4xx) || defined(STM32F7xx)
