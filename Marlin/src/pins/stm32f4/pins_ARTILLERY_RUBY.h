@@ -34,6 +34,8 @@
 //#define I2C_EEPROM
 //#define E2END 0xFFF // 4KB
 
+#define HAL_TIMER_RATE      F_CPU
+
 //
 // Limit Switches
 //
