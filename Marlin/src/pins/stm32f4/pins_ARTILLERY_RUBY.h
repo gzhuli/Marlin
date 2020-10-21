@@ -116,16 +116,16 @@
 // LCD / Controller
 //
 #if EITHER(MKS_12864OLED, MKS_12864OLED_SSD1306)
-  #define LCD_PINS_DC                         PC14  // Set as output on init
-  #define LCD_PINS_RS                         PC15  // Pull low for 1s to init
+  #define LCD_PINS_DC                         PB8   // Set as output on init
+  #define LCD_PINS_RS                         PB9   // Pull low for 1s to init
   // DOGM SPI LCD Support
-  #define DOGLCD_CS                           PB9
+  #define DOGLCD_CS                           PC15
   #define DOGLCD_MOSI                         PB6
   #define DOGLCD_SCK                          PB5
   #define DOGLCD_A0                           LCD_PINS_DC
 #elif ENABLED(FYSETC_MINI_12864)
   #define DOGLCD_CS                           PB6
-  #define DOGLCD_A0                           PB9
+  #define DOGLCD_A0                           PC15
 
   //#define FORCE_SOFT_SPI                        // Use this if default of hardware SPI causes display problems
                                                   //   results in LCD soft SPI mode 3, SD soft SPI mode 0
@@ -134,33 +134,33 @@
 
   #if EITHER(FYSETC_MINI_12864_1_2, FYSETC_MINI_12864_2_0)
     #ifndef RGB_LED_R_PIN
-      #define RGB_LED_R_PIN                   PC15
+      #define RGB_LED_R_PIN                   PB9
     #endif
     #ifndef RGB_LED_G_PIN
-      #define RGB_LED_G_PIN                   PC14
+      #define RGB_LED_G_PIN                   PB8
     #endif
     #ifndef RGB_LED_B_PIN
-      #define RGB_LED_B_PIN                   PC13
+      #define RGB_LED_B_PIN                   PB7
     #endif
   #elif ENABLED(FYSETC_MINI_12864_2_1)
-    #define NEOPIXEL_PIN                      PC15
+    #define NEOPIXEL_PIN                      PB9
   #endif
 
   #define DEFAULT_LCD_CONTRAST                255
 #else
-  #define LCD_PINS_RS                         PB9
+  #define LCD_PINS_RS                         PC15
   #define LCD_PINS_ENABLE                     PB6
   #define LCD_PINS_D4                         PB5
-  #define LCD_PINS_D5                         PC15
-  #define LCD_PINS_D6                         PC14
+  #define LCD_PINS_D5                         PB9
+  #define LCD_PINS_D6                         PB8
 #endif
 
-#define LCD_PINS_D7                           PC13
+#define LCD_PINS_D7                           PB7
 
 //
 // Beeper, SD Card, Encoder
 //
-#define BEEPER_PIN                            PB7
+#define BEEPER_PIN                            PC13
 
 #if ENABLED(SDSUPPORT)
   #define SDSS                                PA15
@@ -170,5 +170,5 @@
 #if ENABLED(NEWPANEL)
   #define BTN_EN1                             PB4
   #define BTN_EN2                             PB3
-  #define BTN_ENC                             PB8
+  #define BTN_ENC                             PC14
 #endif
