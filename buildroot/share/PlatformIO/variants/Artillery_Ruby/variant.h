@@ -99,7 +99,15 @@ extern "C" {
 #define PIN_SPI_SS              PA15
 
 // Timer Definitions
-#define TIMER_SERVO             TIM4
+// TIM1  - Hardware PWM (HB)
+// TIM2  - TIMER_SERVO
+// TIM3  - Hardware PWM (FAN0/1/2, HE0)
+// TIM4  - Hardware PWM (LED_R/G/B)
+// TIM5  - TIMER_TONE
+// TIM9  - STEP_TIMER
+// TIM10 - TEMP_TIMER
+// TIM11 -
+#define TIMER_SERVO             TIM2
 #define TIMER_TONE              TIM5
 
 // UART Definitions
