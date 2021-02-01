@@ -16,7 +16,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
 #pragma once
@@ -30,34 +30,42 @@
 
 #include "spindle_laser_types.h"
 
+#if USE_BEEPER
+  #include "../libs/buzzer.h"
+#endif
+
 #if ENABLED(LASER_POWER_INLINE)
   #include "../module/planner.h"
 #endif
 
 #define PCT_TO_PWM(X) ((X) * 255 / 100)
+#define PCT_TO_SERVO(X) ((X) * 180 / 100)
 
 #ifndef SPEED_POWER_INTERCEPT
   #define SPEED_POWER_INTERCEPT 0
 #endif
-#define SPEED_POWER_FLOOR TERN(CUTTER_POWER_RELATIVE, SPEED_POWER_MIN, 0)
 
 // #define _MAP(N,S1,S2,D1,D2) ((N)*_MAX((D2)-(D1),0)/_MAX((S2)-(S1),1)+(D1))
 
 class SpindleLaser {
 public:
   static constexpr float
-    min_pct = round(TERN(CUTTER_POWER_RELATIVE, 0, (100 * float(SPEED_POWER_MIN) / TERN(SPINDLE_FEATURE, float(SPEED_POWER_MAX), 100)))),
-    max_pct = round(TERN(SPINDLE_FEATURE, 100, float(SPEED_POWER_MAX)));
+    min_pct = TERN(CUTTER_POWER_RELATIVE, 0, TERN(SPINDLE_FEATURE, round(100.0f * (SPEED_POWER_MIN) / (SPEED_POWER_MAX)), SPEED_POWER_MIN)),
+    max_pct = TERN(SPINDLE_FEATURE, 100, SPEED_POWER_MAX);
 
   static const inline uint8_t pct_to_ocr(const float pct) { return uint8_t(PCT_TO_PWM(pct)); }
 
-  // cpower = configured values (ie SPEED_POWER_MAX)
-  static const inline uint8_t cpwr_to_pct(const cutter_cpower_t cpwr) { // configured value to pct
-    return unitPower ? round(100 * (cpwr - SPEED_POWER_FLOOR) / (SPEED_POWER_MAX - SPEED_POWER_FLOOR)) : 0;
+  // cpower = configured values (e.g., SPEED_POWER_MAX)
+
+  // Convert configured power range to a percentage
+  static const inline uint8_t cpwr_to_pct(const cutter_cpower_t cpwr) {
+    constexpr cutter_cpower_t power_floor = TERN(CUTTER_POWER_RELATIVE, SPEED_POWER_MIN, 0),
+                              power_range = SPEED_POWER_MAX - power_floor;
+    return cpwr ? round(100.0f * (cpwr - power_floor) / power_range) : 0;
   }
 
-  // Convert a configured value (cpower)(ie SPEED_POWER_STARTUP) to unit power (upwr, upower),
-  // which can be PWM, Percent, or RPM (rel/abs).
+  // Convert a cpower (e.g., SPEED_POWER_STARTUP) to unit power (upwr, upower),
+  // which can be PWM, Percent, Servo angle, or RPM (rel/abs).
   static const inline cutter_power_t cpwr_to_upwr(const cutter_cpower_t cpwr) { // STARTUP power to Unit power
     const cutter_power_t upwr = (
       #if ENABLED(SPINDLE_FEATURE)
@@ -66,6 +74,8 @@ public:
           cpwr                            // to RPM
         #elif CUTTER_UNIT_IS(PERCENT)     // to PCT
           cpwr_to_pct(cpwr)
+        #elif CUTTER_UNIT_IS(SERVO)       // to SERVO angle
+          PCT_TO_SERVO(cpwr_to_pct(cpwr))
         #else                             // to PWM
           PCT_TO_PWM(cpwr_to_pct(cpwr))
         #endif
@@ -84,6 +94,10 @@ public:
   static const cutter_power_t mpower_min() { return cpwr_to_upwr(SPEED_POWER_MIN); }
   static const cutter_power_t mpower_max() { return cpwr_to_upwr(SPEED_POWER_MAX); }
 
+  #if ENABLED(LASER_FEATURE)
+    static cutter_test_pulse_t testPulse; // Test fire Pulse ms value
+  #endif
+
   static bool isReady;                    // Ready to apply power setting from the UI to OCR
   static uint8_t power;
 
@@ -91,8 +105,8 @@ public:
     static cutter_frequency_t frequency;  // Set PWM frequency; range: 2K-50K
   #endif
 
-  static cutter_power_t menuPower;        // Power as set via LCD menu in PWM, Percentage or RPM
-  static cutter_power_t unitPower;        // Power as displayed status in PWM, Percentage or RPM
+  static cutter_power_t menuPower,        // Power as set via LCD menu in PWM, Percentage or RPM
+                        unitPower;        // Power as displayed status in PWM, Percentage or RPM
 
   static void init();
 
@@ -109,9 +123,13 @@ public:
   FORCE_INLINE static void refresh() { apply_power(power); }
   FORCE_INLINE static void set_power(const uint8_t upwr) { power = upwr; refresh(); }
 
-  static inline void set_enabled(const bool enable) { set_power(enable ? (power ?: (unitPower ? upower_to_ocr(cpwr_to_upwr(SPEED_POWER_STARTUP)) : 0)) : 0); }
-
   #if ENABLED(SPINDLE_LASER_PWM)
+
+    private:
+
+    static void _set_ocr(const uint8_t ocr);
+
+    public:
 
     static void set_ocr(const uint8_t ocr);
     static inline void set_ocr_power(const uint8_t ocr) { power = ocr; set_ocr(ocr); }
@@ -139,7 +157,7 @@ public:
         #elif CUTTER_UNIT_IS(RPM)
           2
         #else
-          #error "???"
+          #error "CUTTER_UNIT_IS(unknown)"
         #endif
       ));
     }
@@ -148,21 +166,21 @@ public:
       cutter_power_t upwr;
       switch (pwrUnit) {
         case 0:                                                 // PWM
-          upwr = (
+          upwr = cutter_power_t(
               (pwr < pct_to_ocr(min_pct)) ? pct_to_ocr(min_pct) // Use minimum if set below
             : (pwr > pct_to_ocr(max_pct)) ? pct_to_ocr(max_pct) // Use maximum if set above
             :  pwr
           );
           break;
         case 1:                                                 // PERCENT
-          upwr = (
+          upwr = cutter_power_t(
               (pwr < min_pct) ? min_pct                         // Use minimum if set below
             : (pwr > max_pct) ? max_pct                         // Use maximum if set above
             :  pwr                                              // PCT
           );
           break;
         case 2:                                                 // RPM
-          upwr = (
+          upwr = cutter_power_t(
               (pwr < SPEED_POWER_MIN) ? SPEED_POWER_MIN         // Use minimum if set below
             : (pwr > SPEED_POWER_MAX) ? SPEED_POWER_MAX         // Use maximum if set above
             : pwr                                               // Calculate OCR value
@@ -175,6 +193,10 @@ public:
 
   #endif // SPINDLE_LASER_PWM
 
+  static inline void set_enabled(const bool enable) {
+    set_power(enable ? TERN(SPINDLE_LASER_PWM, (power ?: (unitPower ? upower_to_ocr(cpwr_to_upwr(SPEED_POWER_STARTUP)) : 0)), 255) : 0);
+  }
+
   // Wait for spindle to spin up or spin down
   static inline void power_delay(const bool on) {
     #if DISABLED(LASER_POWER_INLINE)
@@ -183,9 +205,11 @@ public:
   }
 
   #if ENABLED(SPINDLE_CHANGE_DIR)
-    static void set_direction(const bool reverse);
+    static void set_reverse(const bool reverse);
+    static bool is_reverse() { return READ(SPINDLE_DIR_PIN) == SPINDLE_INVERT_DIR; }
   #else
-    static inline void set_direction(const bool) {}
+    static inline void set_reverse(const bool) {}
+    static bool is_reverse() { return false; }
   #endif
 
   static inline void disable() { isReady = false; set_enabled(false); }
@@ -194,17 +218,18 @@ public:
 
     static inline void enable_with_dir(const bool reverse) {
       isReady = true;
-      const uint8_t ocr = upower_to_ocr(menuPower);
+      const uint8_t ocr = TERN(SPINDLE_LASER_PWM, upower_to_ocr(menuPower), 255);
       if (menuPower)
         power = ocr;
       else
         menuPower = cpwr_to_upwr(SPEED_POWER_STARTUP);
       unitPower = menuPower;
-      set_direction(reverse);
+      set_reverse(reverse);
       set_enabled(true);
     }
     FORCE_INLINE static void enable_forward() { enable_with_dir(false); }
     FORCE_INLINE static void enable_reverse() { enable_with_dir(true); }
+    FORCE_INLINE static void enable_same_dir() { enable_with_dir(is_reverse()); }
 
     #if ENABLED(SPINDLE_LASER_PWM)
       static inline void update_from_mpower() {
@@ -213,7 +238,21 @@ public:
       }
     #endif
 
-  #endif
+    #if ENABLED(LASER_FEATURE)
+      /**
+       * Test fire the laser using the testPulse ms duration
+       * Also fires with any PWM power that was previous set
+       * If not set defaults to 80% power
+       */
+      static inline void test_fire_pulse() {
+        enable_forward();                  // Turn Laser on (Spindle speak but same funct)
+        TERN_(USE_BEEPER, buzzer.tone(30, 3000));
+        delay(testPulse);                  // Delay for time set by user in pulse ms menu screen.
+        disable();                         // Turn laser off
+      }
+    #endif
+
+  #endif // HAS_LCD_MENU
 
   #if ENABLED(LASER_POWER_INLINE)
     /**
@@ -222,35 +261,40 @@ public:
      */
 
     // Force disengage planner power control
-    static inline void inline_disable()	{
+    static inline void inline_disable() {
       isReady = false;
       unitPower = 0;
-      planner.laser_inline.status = 0;
+      planner.laser_inline.status.isPlanned = false;
+      planner.laser_inline.status.isEnabled = false;
       planner.laser_inline.power = 0;
     }
 
     // Inline modes of all other functions; all enable planner inline power control
     static inline void set_inline_enabled(const bool enable) {
-      if (enable) { inline_power(cpwr_to_upwr(SPEED_POWER_STARTUP)); }
-      else { unitPower = 0; isReady = false; menuPower = 0; TERN(SPINDLE_LASER_PWM, inline_ocr_power, inline_power)(0);}
+      if (enable)
+        inline_power(255);
+      else {
+        isReady = false;
+        unitPower = menuPower = 0;
+        planner.laser_inline.status.isPlanned = false;
+        TERN(SPINDLE_LASER_PWM, inline_ocr_power, inline_power)(0);
+      }
     }
 
     // Set the power for subsequent movement blocks
     static void inline_power(const cutter_power_t upwr) {
-      unitPower = upwr;
-      menuPower = unitPower;
+      unitPower = menuPower = upwr;
       #if ENABLED(SPINDLE_LASER_PWM)
-          isReady = true;
         #if ENABLED(SPEED_POWER_RELATIVE) && !CUTTER_UNIT_IS(RPM) // relative mode does not turn laser off at 0, except for RPM
-          planner.laser_inline.status = 0x03;
+          planner.laser_inline.status.isEnabled = true;
           planner.laser_inline.power = upower_to_ocr(upwr);
+          isReady = true;
         #else
-          if (upwr > 0)
-            inline_ocr_power(upower_to_ocr(upwr));
+          inline_ocr_power(upower_to_ocr(upwr));
         #endif
       #else
-        planner.laser_inline.status = enabled(pwr) ? 0x03 : 0x01;
-        planner.laser_inline.power = pwr;
+        planner.laser_inline.status.isEnabled = enabled(upwr);
+        planner.laser_inline.power = upwr;
         isReady = enabled(upwr);
       #endif
     }
@@ -259,7 +303,8 @@ public:
 
     #if ENABLED(SPINDLE_LASER_PWM)
       static inline void inline_ocr_power(const uint8_t ocrpwr) {
-        planner.laser_inline.status = ocrpwr ? 0x03 : 0x01;
+        isReady = ocrpwr > 0;
+        planner.laser_inline.status.isEnabled = ocrpwr > 0;
         planner.laser_inline.power = ocrpwr;
       }
     #endif
