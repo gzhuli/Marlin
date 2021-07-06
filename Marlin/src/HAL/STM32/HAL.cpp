@@ -156,7 +156,7 @@ void HAL_adc_start_conversion(const uint8_t adc_pin) { HAL_adc_result = analogRe
 uint16_t HAL_adc_get_result() { return HAL_adc_result; }
 
 // Reset the system to initiate a firmware flash
-WEAK void flashFirmware(const int16_t) { NVIC_SystemReset(); }
+WEAK void flashFirmware(const int16_t) { HAL_reboot(); }
 
 // Maple Compatibility
 volatile uint32_t systick_uptime_millis = 0;
